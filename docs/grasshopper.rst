@@ -1,6 +1,13 @@
 grasshopper package
 ===================
 
+Subpackages
+-----------
+
+.. toctree::
+
+    grasshopper.data
+
 Submodules
 ----------
 
@@ -32,6 +39,14 @@ grasshopper.sources module
 --------------------------
 
 .. automodule:: grasshopper.sources
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+grasshopper.timingarray module
+------------------------------
+
+.. automodule:: grasshopper.timingarray
     :members:
     :undoc-members:
     :show-inheritance:

@@ -26,6 +26,7 @@ User Guide
 
    readme
    installation
+   example
    usage
 
 Developer Guide
@@ -36,6 +37,7 @@ Developer Guide
 	   
    contributing
    authors
+   modules
    history
 
 Indices and tables
