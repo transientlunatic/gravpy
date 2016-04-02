@@ -19,15 +19,21 @@ merger events, and making plots of those.
 
 It's early days and there are lots of other things to be done with the package!
 
-
-Contents:
-
+User Guide
+==========
 .. toctree::
    :maxdepth: 2
 
    readme
    installation
    usage
+
+Developer Guide
+===============
+
+.. toctree::
+   :maxdepth: 2
+	   
    contributing
    authors
    history
