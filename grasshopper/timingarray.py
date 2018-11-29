@@ -6,9 +6,14 @@ import scipy.linalg as la
 from astropy.io import ascii
 from astropy.table import Table, join
 import astropy.units as u
+
+from astropy.coordinates import SkyCoord
 import functools32
+import psrqpy
 
 from interferometers import Detector
+
+from pkg_resources import resource_string, resource_stream, resource_filename
 
 def hellingsdowns_factor(pulsar1, pulsar2):
     """
@@ -24,8 +29,8 @@ def hellingsdowns_factor(pulsar1, pulsar2):
     if pulsar1 == pulsar2: return 1 #last = 0.5
     return 1.5*first - 0.25 * second + 0.5 
 
-class Pulsar():
-    def __init__(self, psrj, cadence, obstime, rms):
+class Pulsar(object):
+    def __init__(self, psrj, cadence, obstime, rms, position):
         """
         Object representing a pulsar.
         
@@ -39,13 +44,16 @@ class Pulsar():
             The observation time of the pulsar.
         rms : float
             The root mean square of the timing residuals for the pulsar.
+        position : `astropy.SkyCoord`
+            The location of the pulsar in the Sky
         """
-        catalogue = data.atnf.get_atnf()
-        rowdata = catalogue.loc['PSRJ', psrj]
-        self.location = rowdata['POS']
+        #catalogue = data.atnf.get_atnf()
+        #rowdata = catalogue.loc['PSRJ', psrj]
+        #self.location = rowdata['POS']
         self.cadence = cadence
         self.rms = rms
         self.obstime = obstime
+        self.location = position
         
         
     @property
@@ -69,8 +77,9 @@ class Pulsar():
         #if frequency < 1 / self.obstime: return np.nan
         #if frequency > 1 / self.cadence: return np.nan
         outs = np.ones(len(frequency))
-        outs[frequency < 1/self.obstime] = np.nan
-        outs[frequency > 1/self.cadence] = np.nan
+        frequency = frequency * u.hertz
+        outs[frequency < 1./self.obstime] = np.nan
+        outs[frequency > 1./self.cadence] = np.nan
         return (2 * 1./self.cadence *  self.rms**2)*outs
 
 class TimingArray(Detector):
@@ -79,10 +88,19 @@ class TimingArray(Detector):
     def __init__(self, pulsars):
         pulsar_list =  ascii.read(pulsars, delimiter=" ", guess=False)
         pulsar_list.add_index('Name')
+
+        params = ["RAJ", "DECJ"]
+        
+        print(pulsar_list['Name'])
+
+        query = psrqpy.QueryATNF(params, psrs=pulsar_list['Name'])
+        pq = query.get_pulsars()
+        
         for pulsar in pulsar_list:
             cadence = pulsar['Cadence']*u.day
             obstime = pulsar['Timespan']*u.year
-            self.pulsars.append(Pulsar(pulsar['Name'], cadence.to(u.second), obstime.to(u.second), pulsar['RMSRes'] ))
+            pos = SkyCoord(getattr(pq[pulsar], 'RAJ'), getattr(pq[pulsar],'DECJ'), unit=(u.deg, u.deg))
+            self.pulsars.append(Pulsar(pulsar['Name'], cadence.to(u.second), obstime.to(u.second), pulsar['RMSRes'], position=pos ))
             
     def plot_array(self):
         """
@@ -118,6 +136,7 @@ class TimingArray(Detector):
         for i,pulsar1 in enumerate(self.pulsars):
             for j,pulsar2 in enumerate(self.pulsars):
                 hdmat[i,j] = hellingsdowns_factor(pulsar1, pulsar2)
+                hdmat[j,i] = hdmat[i,j]
                 self.hdm = hdmat
         return hdmat
 
@@ -163,7 +182,7 @@ class TimingArray(Detector):
         [1] 10.1103/PhysRevD.88.124032
         
         """
-        if not frequencies: frequencies = self.frequencies
+        if frequency == None: frequency = self.frequencies
         out = 0
         hdmat = self.hdmatrix()
         for i in xrange(len(hdmat[0])):
@@ -178,11 +197,26 @@ class IPTA(TimingArray):
     """
     The international pulsar timing array.
     """
+    name = "IPTA"
     def __init__(self):
-        pulsar_list =  ascii.read('data/IPTA-pulsars.dat', delimiter=" ", guess=False)
+        data_file = resource_filename(__name__, "data/IPTA-pulsars.dat")
+        pulsar_list =  ascii.read(data_file, delimiter=" ", guess=False)
         pulsar_list.add_index('Name')
+
+        params = ["RAJ", "DECJ"]
+
+        query = psrqpy.QueryATNF(params, psrs=list(pulsar_list['Name']))
+        pq = query.get_pulsars()
+        
         for pulsar in pulsar_list:
             cadence = pulsar['Cadence']*u.day
             obstime = pulsar['Timespan']*u.year
-            self.pulsars.append(Pulsar(pulsar['Name'], cadence.to(u.second), obstime.to(u.second), pulsar['RMSRes'] ))
+            pos = SkyCoord(getattr(pq[pulsar['Name']], 'RAJ'), getattr(pq[pulsar['Name']],'DECJ'), unit=(u.deg, u.deg))
+            self.pulsars.append(Pulsar(pulsar['Name'], cadence.to(u.second), obstime.to(u.second), pulsar['RMSRes'], position=pos ))
+            
+        
+        # for pulsar in pulsar_list:
+        #     cadence = pulsar['Cadence']*u.day
+        #     obstime = pulsar['Timespan']*u.year
+        #     self.pulsars.append(Pulsar(pulsar['Name'], cadence.to(u.second), obstime.to(u.second), pulsar['RMSRes'] ))
     

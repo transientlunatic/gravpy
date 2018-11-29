@@ -81,15 +81,21 @@ class Detector():
         if not frequencies: frequencies = self.frequencies
         return np.sqrt(self.psd(frequencies))
     
-    def plot(self, axis=None):
+    def plot(self, axis=None, **kwargs):
         """
         Plot the noise curve for this detector.
         """
+        if "lw" not in kwargs.keys():
+            lw=2
+        else:
+            
+            lw=kwargs.pop('lw')
+        
         if axis: 
-            axis.loglog(self.frequencies, self.noise_amplitude(self.frequencies), label=self.name, lw=2)
+            axis.loglog(self.frequencies, self.noise_amplitude(), label=self.name, lw=lw, **kwargs)
             axis.set_xlabel('Frequency [Hz]')
             axis.set_ylabel('Characteristic Strain')
-            axis.legend()
+        
 
 class Interferometer(Detector):
     """
@@ -99,7 +105,7 @@ class Interferometer(Detector):
     f0 = 150 * u.hertz
     fs = 40 * u.hertz
     S0 = 1e-46 / u.hertz
-    frequencies =  np.logspace(1, 5, 10000) * u.hertz
+    frequencies =  np.logspace(1, 5, 4000) * u.hertz
     
     xhat = np.array([1,0,0])
     yhat = np.array([0,1,0])
@@ -108,9 +114,10 @@ class Interferometer(Detector):
     
     detector_tensor = length * (np.outer(xhat, xhat) - np.outer(yhat, yhat))
     
-    def __init__(self, frequencies=None, configuration=None):
+    def __init__(self, frequencies=None, configuration=None, obs_time=None):
         if frequencies: self.frequencies = frequencies
         self.configuration = configuration
+        self.obs_time = obs_time
         
         if configuration: 
             self.name = "{} [{}]".format(self.name, configuration)
@@ -160,6 +167,10 @@ class Interferometer(Detector):
         x = frequencies / self.f0
         xs = self.fs / self.f0
         sh = self.noise_spectrum(x)
+
+        if self.obs_time:
+            sh /= (self.obs_time.to(u.second))
+        
         sh[frequencies<self.fs]=np.nan
         return sh * self.S0
 
@@ -303,8 +314,59 @@ class TimingArray(Detector):
         sh[frequencies>upper]=np.nan
         return sh 
 
+
+class BDecigo(Interferometer):
+    # B-DECIGO noise curve in arxiv:1802.06977
+    S0 = 4.040e-46 * u.hertz**-1
+
+    frequency_range = [1e-2, 1e2] * u.hertz
+    frequencies =  np.logspace(-2, 2, 10000) * u.hertz
+
+    def psd(self, frequencies):
+        return self.S0 * (1.0 + 1.584e-2 * frequencies.value**-4 + 1.584e-3 * frequencies.value**2)
+
+class Decigo(Interferometer):
+    """
+    The full, original Decigo noise curve, from  arxiv:1101.3940.
+    """
+
+    fp = 7.36 * u.hertz
+
+    frequency_range = [1e-2, 1e2] * u.hertz
+    frequencies =  np.logspace(-2, 2, 10000) * u.hertz
     
-            
+    def psd(self, frequencies):
+        """
+        The power spectrum density of the detector, taken from equation 5 of arxiv:1101.3940.
+        """
+        first_c = 7.05e-48
+        second_c = 4.8e-51
+        third_c = 5.33e-52
+
+        first = first_c * (1 + (frequencies / self.fp)**2)
+        second =  second_c * frequencies.value**-4 / (1+(frequencies/self.fp)**2)
+        third = third_c * frequencies.value**-4
+        
+        return  (first + second + third) * u.hertz**-1
+
+class BigBangObservatory(Interferometer):
+    """
+    The Big Bang Observatory.
+    """
+
+    frequency_range = [1e-3, 1e2] * u.hertz
+    frequencies =  np.logspace(-3, 2, 10000) * u.hertz
+
+    def psd(self, frequencies):
+        """
+        The power spectrum density of the detector, taken from equation 6 of arxiv:1101.3940.
+        """
+        first = 2.00e-49 * frequencies.value**2
+        second = 4.58e-49
+        third = 1.26e-51*frequencies.value**-4
+
+        return (first + second + third)*u.hertz**-1
+    
 class AdvancedLIGO(Interferometer):
     """
     The aLIGO Interferometer
@@ -314,7 +376,7 @@ class AdvancedLIGO(Interferometer):
     fs = 20 * u.hertz
     S0 = 1.0e-49 / u.hertz
     
-    
+    frequency_range = [30, 4e3] * u.hertz
     xhat = np.array([1,0,0])
     yhat = np.array([0,1,0])
     zhat = np.array([0,0,1])
@@ -365,11 +427,11 @@ class TAMA(Interferometer):
     def noise_spectrum(self, x):
         return x**(-5) + 13*x**-1 + 9*(1+x**2)
     
-class VIRGO(Interferometer):
+class Virgo(Interferometer):
     """
-    The VIRGO Interferometer
+    The Virgo Interferometer
     """
-    name = "VIRGO"
+    name = "Virgo"
     f0 = 500 * u.hertz
     fs = 20 * u.hertz
     S0 = 3.2e-46 / u.hertz
@@ -396,3 +458,60 @@ class EvolvedLISA(Interferometer):
         s  =(20./3) * (4*(sacc + ssn + son) / self.L**2) * ( 1+ (frequencies/(0.41 * (c.c/(2*self.L))))**2)
         s[frequencies<self.fs]=np.nan
         return s
+
+class LISA(Interferometer):
+    """
+    The LISA Interferometer in its mission-accepted state, as of 2018
+    """
+    name = "eLISA"
+    frequencies =  np.logspace(-5, 0, 10000) * u.hertz
+    L = 2.5e9*u.meter
+    fstar = 19.08*1e-3 * u.hertz
+    fs = 3e-5 * u.hertz
+
+    def metrology_noise(self, frequencies):
+        """
+        Calculate the noise due to the single-link optical metrology, from arxiv:1803.01944.
+        """
+        first =  (1.5e-11 * u.meter)**2
+        second = (1 * u.dimensionless_unscaled +(2e-3*u.hertz/frequencies)**4) * u.hertz**-1
+
+        return first*second
+
+    def single_mass_noise(self, frequencies):
+        """
+        The acceleration noise for a single test mass.
+        """
+        first = (3e-15 * u.meter * u.second**-2)**2
+        second = (1 * u.dimensionless_unscaled +(0.4e-3*u.hertz/frequencies)**2)
+        third = (1 * u.dimensionless_unscaled+(frequencies/(8e-3*u.hertz))**4)*u.hertz**-1
+
+        return first*second*third
+
+    def confusion_noise(self, frequencies, observation_time=0.5):
+        """
+        The noise created by unresolvable galactic binaries at low frequencies.
+        """
+        amp = 9e-45
+
+        alpha = {0.5: 0.133, 1: 0.171, 2: 0.165, 4: 0.138}
+        beta  = {0.5: 243, 1: 292, 2: 299, 4: -221}
+        kappa = {0.5: 482, 1: 1020, 2: 611, 4: 521}
+        gamma = {0.5: 917, 1: 1680, 2: 1340, 4: 1680}
+        fk = {0.5: 0.00258, 1: 0.00215, 2: 0.00173, 4: 0.00113}
+
+        first = amp * frequencies**(-7./3.) * np.exp((- frequencies**alpha[observation_time]).value
+                                                      + (beta[observation_time] * frequencies * np.sin((kappa[observation_time] * frequencies).value)).value)
+        second = (1+np.tanh((gamma[observation_time] * (fk[observation_time]*u.hertz - frequencies)).value))
+
+        return (first * second).value * (u.hertz**-1)
+        
+    
+    def psd(self, frequencies):
+        # See https://arxiv.org/pdf/1803.01944.pdf for this
+
+        first = (10 / 3 * self.L**-2)
+        second = (self.metrology_noise(frequencies) + (4*self.single_mass_noise(frequencies)/(2*np.pi*frequencies)**4))
+        third = (1 * u.dimensionless_unscaled + (6./10)*(frequencies / self.fstar)**2)
+        return (first*second*third) + self.confusion_noise(frequencies)
+    
