@@ -16,7 +16,7 @@ gravpy
 A sandbox for gravitational wave astronomy.
 
 * Free software: ISC license
-* Documentation: https://gravpy.readthedocs.org.
+* Documentation: https://code.daniel-williams.co.uk/gravpy/
 
 Features
 --------
