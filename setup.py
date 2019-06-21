@@ -23,23 +23,23 @@ test_requirements = [
 ]
 
 setup(
-    name='grasshopper',
+    name='gravpy',
     version='0.1.0',
     description="A sandbox for gravitational wave astronomy.",
     long_description=readme + '\n\n' + history,
     author="Daniel Williams",
     author_email='d.williams.2@research.gla.ac.uk',
-    url='https://github.com/transientlunatic/grasshopper',
+    url='https://github.com/transientlunatic/gravpy',
     packages=[
-        'grasshopper',
+        'gravpy',
     ],
-    package_dir={'grasshopper':
-                 'grasshopper'},
+    package_dir={'gravpy':
+                 'gravpy'},
     include_package_data=True,
     install_requires=requirements,
     license="ISCL",
     zip_safe=False,
-    keywords='grasshopper',
+    keywords='gravpy',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',

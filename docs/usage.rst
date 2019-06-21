@@ -2,8 +2,8 @@
 Usage
 =====
 
-To use grasshopper in a project::
+To use gravpy in a project::
 
-    import grasshopper
+    import gravpy
 
-The grasshopper package can currently produce sensitivity curves for interferometers.
+The gravpy package can currently produce sensitivity curves for interferometers.

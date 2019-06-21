@@ -2,7 +2,7 @@
 GW150914 Example
 =================
 
-Let's have a quick look at what Grasshopper can do. In this example
+Let's have a quick look at what Gravpy can do. In this example
 we'll have a look at the sensitivities of some of the current and
 historical interferometers, and then have a look at how GW150914, the
 first detected gravitational wave event would have looked in the
@@ -22,10 +22,10 @@ A number of approaches to detecting gravitational waves have been
 discussed in the literature, and have been constructed, ranging from
 pulsar timing arrays to Weber bars. We're going to simulate some
 interferometers, like the LIGO detectors which made the detection of
-GW150914. To do this, grasshopper has a package for interferometers,
+GW150914. To do this, gravpy has a package for interferometers,
 with some "pre-made" interferometers.
 ::
-   import grasshopper.interferometers as ifo
+   import gravpy.interferometers as ifo
 
 We can now simulate some interferometers. Let's start with Advanced LIGO.
 ::
@@ -36,7 +36,7 @@ We can take a look at the sensitivity curve using the `~aligo.plot()` method:
 .. plot::
    
    import matplotlib.pyplot as plt
-   import grasshopper.interferometers as ifo
+   import gravpy.interferometers as ifo
    aligo = ifo.AdvancedLIGO()
 
    plt.style.use('ggplot')
@@ -51,9 +51,9 @@ Now that we have an interferometer, let's have a look at an
 event. We'll simulate a compact binary merger, or a "CBC".
 
 The first observed gravitational wave event was a CBC, a binary black
-hole merger. We can simulate that event using grasshopper.
+hole merger. We can simulate that event using gravpy.
 ::
-   import grasshopper.sources as sources
+   import gravpy.sources as sources
    cbc = sources.CBC(frequencies=np.logspace(-4, 5, 1000) * u.hertz, 
                      m1=32*u.solMass, m2=30*u.solMass, r=0.8*1e9*u.parsec)
 
@@ -62,7 +62,7 @@ Let's have a look at the frequency behaviour of the event:
 .. plot::
    
    import matplotlib.pyplot as plt
-   import grasshopper.sources as sources
+   import gravpy.sources as sources
    import astropy.units as u
    cbc = sources.CBC(frequencies=np.logspace(-4, 5, 1000) * u.hertz, 
                      m1=32*u.solMass, m2=30*u.solMass, r=0.8*1e9*u.parsec)
@@ -91,8 +91,8 @@ with its "O1" configuration.
 Let's have a look at this and the event on a plot.
 ::
   import matplotlib.pyplot as plt
-  import grasshopper.interferometers as ifo
-  import grasshopper.sources as sources
+  import gravpy.interferometers as ifo
+  import gravpy.sources as sources
   import astropy.units as u
   o1_aligo = ifo.AdvancedLIGO(configuration='O1')
   cbc = sources.CBC(frequencies=np.logspace(-4, 5, 1000) * u.hertz, 
@@ -107,8 +107,8 @@ Let's have a look at this and the event on a plot.
 .. plot::
 
    import matplotlib.pyplot as plt
-   import grasshopper.interferometers as ifo
-   import grasshopper.sources as sources
+   import gravpy.interferometers as ifo
+   import gravpy.sources as sources
    import astropy.units as u
    o1_aligo = ifo.AdvancedLIGO(configuration='O1')
    cbc = sources.CBC(frequencies=np.logspace(-4, 5, 1000) * u.hertz, 
