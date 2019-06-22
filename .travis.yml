@@ -27,5 +27,5 @@ deploy:
     secure: PLEASE_REPLACE_ME
   on:
     tags: true
-    repo: transientlunatic/grasshopper
+    repo: transientlunatic/gravpy
     condition: $TOXENV == py27

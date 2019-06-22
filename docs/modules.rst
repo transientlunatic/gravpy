@@ -1,7 +1,7 @@
-grasshopper
+gravpy
 ===========
 
 .. toctree::
    :maxdepth: 4
 
-   grasshopper
+   gravpy

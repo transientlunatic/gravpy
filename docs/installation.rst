@@ -6,9 +6,9 @@ Installation
 
 At the command line::
 
-    $ easy_install grasshopper
+    $ easy_install gravpy
 
 Or, if you have virtualenvwrapper installed::
 
-    $ mkvirtualenv grasshopper
-    $ pip install grasshopper
+    $ mkvirtualenv gravpy
+    $ pip install gravpy

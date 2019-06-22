@@ -46,7 +46,7 @@ clean-test:
 	rm -fr htmlcov/
 
 lint:
-	flake8 grasshopper tests
+	flake8 gravpy tests
 
 test:
 	python setup.py test
@@ -55,15 +55,15 @@ test-all:
 	tox
 
 coverage:
-	coverage run --source grasshopper setup.py test
+	coverage run --source gravpy setup.py test
 	coverage report -m
 	coverage html
 	$(BROWSER) htmlcov/index.html
 
 docs:
-	rm -f docs/grasshopper.rst
+	rm -f docs/gravpy.rst
 	rm -f docs/modules.rst
-	sphinx-apidoc -o docs/ grasshopper
+	sphinx-apidoc -o docs/ gravpy
 	$(MAKE) -C docs clean
 	$(MAKE) -C docs html 
 	$(BROWSER) docs/_build/html/index.html

@@ -2,15 +2,15 @@
 # -*- coding: utf-8 -*-
 
 """
-test_grasshopper
+test_gravpy
 ----------------------------------
 
-Tests for `grasshopper` module.
+Tests for `gravpy` module.
 """
 
 import unittest
 
-from grasshopper import grasshopper
+from gravpy import gravpy
 
 
 class TestGrasshopper(unittest.TestCase):

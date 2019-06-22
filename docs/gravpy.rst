@@ -1,4 +1,4 @@
-grasshopper package
+gravpy package
 ===================
 
 Subpackages
@@ -6,47 +6,47 @@ Subpackages
 
 .. toctree::
 
-    grasshopper.data
+    gravpy.data
 
 Submodules
 ----------
 
-grasshopper.general module
+gravpy.general module
 --------------------------
 
-.. automodule:: grasshopper.general
+.. automodule:: gravpy.general
     :members:
     :undoc-members:
     :show-inheritance:
 
-grasshopper.grasshopper module
+gravpy.gravpy module
 ------------------------------
 
-.. automodule:: grasshopper.grasshopper
+.. automodule:: gravpy.gravpy
     :members:
     :undoc-members:
     :show-inheritance:
 
-grasshopper.interferometers module
+gravpy.interferometers module
 ----------------------------------
 
-.. automodule:: grasshopper.interferometers
+.. automodule:: gravpy.interferometers
     :members:
     :undoc-members:
     :show-inheritance:
 
-grasshopper.sources module
+gravpy.sources module
 --------------------------
 
-.. automodule:: grasshopper.sources
+.. automodule:: gravpy.sources
     :members:
     :undoc-members:
     :show-inheritance:
 
-grasshopper.timingarray module
+gravpy.timingarray module
 ------------------------------
 
-.. automodule:: grasshopper.timingarray
+.. automodule:: gravpy.timingarray
     :members:
     :undoc-members:
     :show-inheritance:
@@ -55,7 +55,7 @@ grasshopper.timingarray module
 Module contents
 ---------------
 
-.. automodule:: grasshopper
+.. automodule:: gravpy
     :members:
     :undoc-members:
     :show-inheritance:
