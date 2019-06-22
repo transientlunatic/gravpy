@@ -182,7 +182,7 @@ class TimingArray(Detector):
         [1] 10.1103/PhysRevD.88.124032
         
         """
-        if frequency == None: frequency = self.frequencies
+        if not isinstance(frequency, type(None)):  frequency = self.frequencies
         out = 0
         hdmat = self.hdmatrix()
         for i in xrange(len(hdmat[0])):

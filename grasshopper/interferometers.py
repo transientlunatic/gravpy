@@ -35,6 +35,15 @@ class Detector():
     different ways of expressing the noise levels (sensitivity)
     of any detector.
     """
+
+    # def energy(self, frequencies=None):
+    #     """
+    #     Convert the PSD from units of Hz**-.5 to Jansky.
+    #     """
+    #     if not isinstance(frequencies, type(None)): frequencies = self.frequencies
+    #     conversion = (4 * c.c**3 * frequencies**2) / (np.pi * c.G)
+    #     return psd(frequencies) * conversion
+    
     def noise_amplitude(self, frequencies=None):
         """
         The noise amplitude for a detector is defined as
@@ -92,9 +101,11 @@ class Detector():
             lw=kwargs.pop('lw')
         
         if axis: 
-            axis.loglog(self.frequencies, self.noise_amplitude(), label=self.name, lw=lw, **kwargs)
+            line = axis.loglog(self.frequencies, self.noise_amplitude(), label=self.name, lw=lw, **kwargs)
             axis.set_xlabel('Frequency [Hz]')
             axis.set_ylabel('Characteristic Strain')
+
+        return line
         
 
 class Interferometer(Detector):
@@ -113,30 +124,32 @@ class Interferometer(Detector):
     length = 4 * u.kilometer
     
     detector_tensor = length * (np.outer(xhat, xhat) - np.outer(yhat, yhat))
+
+    configuration = None
     
     def __init__(self, frequencies=None, configuration=None, obs_time=None):
-        if frequencies: self.frequencies = frequencies
-        self.configuration = configuration
+        if isinstance(frequencies, np.ndarray): self.frequencies = frequencies
+        if not self.configuration: self.configuration = configuration
         self.obs_time = obs_time
         
         if configuration: 
             self.name = "{} [{}]".format(self.name, configuration)
     
-    def noise_spectrum(self, x):
-        """
-        Return the default noise spectrum for the interferometer.
+    # def noise_spectrum(self, x):
+    #     """
+    #     Return the default noise spectrum for the interferometer.
         
-        Parameters
-        ----------
-        x : float
-            The rescaled frequency at which the fit should be evaluated.
+    #     Parameters
+    #     ----------
+    #     x : float
+    #         The rescaled frequency at which the fit should be evaluated.
             
-        Returns
-        -------
-        float
-            The sensitivity of the interferometer at the frequency provided.
-        """
-        return (3.4*x)**(-30) + 34*x**(-1) + (20 * (1 - x**2 + 0.4*x**4))/(1 + 0.5*x**2)
+    #     Returns
+    #     -------
+    #     float
+    #         The sensitivity of the interferometer at the frequency provided.
+    #     """
+    #     return (3.4*x)**(-30) + 34*x**(-1) + (20 * (1 - x**2 + 0.4*x**4))/(1 + 0.5*x**2)
     
     def psd(self, frequencies=None):
         """
@@ -152,7 +165,7 @@ class Interferometer(Detector):
         configuration : str
             The configuration of the detector for which the curve should be returned.
         """
-        if not frequencies: frequencies = self.frequencies
+        if not isinstance(frequencies, type(None)): frequencies = self.frequencies
             
         if self.configuration:
             configuration = self.configuration
@@ -316,6 +329,7 @@ class TimingArray(Detector):
 
 
 class BDecigo(Interferometer):
+    name = "BDecigo"
     # B-DECIGO noise curve in arxiv:1802.06977
     S0 = 4.040e-46 * u.hertz**-1
 
@@ -329,7 +343,7 @@ class Decigo(Interferometer):
     """
     The full, original Decigo noise curve, from  arxiv:1101.3940.
     """
-
+    name = "Decigo"
     fp = 7.36 * u.hertz
 
     frequency_range = [1e-2, 1e2] * u.hertz
@@ -377,6 +391,7 @@ class AdvancedLIGO(Interferometer):
     S0 = 1.0e-49 / u.hertz
     
     frequency_range = [30, 4e3] * u.hertz
+    frequencies = np.linspace(frequency_range[0].value, frequency_range[1].value, 4000) * u.hertz
     xhat = np.array([1,0,0])
     yhat = np.array([0,1,0])
     zhat = np.array([0,0,1])
@@ -463,7 +478,7 @@ class LISA(Interferometer):
     """
     The LISA Interferometer in its mission-accepted state, as of 2018
     """
-    name = "eLISA"
+    name = "LISA"
     frequencies =  np.logspace(-5, 0, 10000) * u.hertz
     L = 2.5e9*u.meter
     fstar = 19.08*1e-3 * u.hertz
@@ -515,3 +530,41 @@ class LISA(Interferometer):
         third = (1 * u.dimensionless_unscaled + (6./10)*(frequencies / self.fstar)**2)
         return (first*second*third) + self.confusion_noise(frequencies)
     
+
+class EinsteinTelescope(Interferometer):
+    """
+    The Einstein Telescope Interferometer
+    """
+    name = "ET"
+    frequency_range = [0.1, 1e4] * u.hertz
+    frequencies = np.linspace(frequency_range[0].value, frequency_range[1].value, 4000) * u.hertz
+
+    length = 10 * u.kilometer
+    configurations = {
+            'ET-D': 'data/ETD-psd.txt'
+                      }
+    configuration = "ET-D"
+    
+    def psd(self, frequencies=None):
+        """
+        Calculate the one-sided power spectral desnity for a detector. 
+        If a particular configuration is specified then the results will be
+        returned for a spline fit to that configuration's curve, if available.
+        
+        Parameters
+        ----------
+        frequencies : ndarray
+            An array of frequencies where the PSD should be evaluated.
+            
+        configuration : str
+            The configuration of the detector for which the curve should be returned.
+        """
+        if not isinstance(frequencies, type(None)): frequencies = self.frequencies
+            
+        configuration = self.configuration
+        data = self.configurations[configuration]
+        data = np.genfromtxt(os.path.join(os.path.dirname(__file__), data))
+        tck = interpolate.splrep(data[:,0], data[:,3], s=0)
+        interp_sensitivity = interpolate.splev(frequencies, tck, der=0)
+        interp_sensitivity[frequencies<self.fs]=np.nan
+        return (interp_sensitivity)**2 * u.hertz**-1

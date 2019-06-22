@@ -56,10 +56,11 @@ class Source():
         if axis:
             if not label:
                 label = self.name
-            axis.loglog(self.frequencies, self.characteristic_strain(self.frequencies), label=label, lw=2)
+            line = axis.loglog(self.frequencies, self.characteristic_strain(self.frequencies), label=label, lw=2)
             axis.set_xlabel('Frequency [Hz]')
             #axis.set_ylabel('Root Noise Power spectral density')
             axis.legend()
+        return line
             
     def snr(self, detector):
         return general.snr(self, detector)
@@ -129,10 +130,9 @@ class Type1ASupernova(Source):
         if frequencies: self.frequencies = frequencies
         if r: self.r = r
 
-    def raw_strain(self, frequencies = None):
+    def characteristic_strain(self, frequencies = None):
         if not frequencies: frequencies = self.frequencies
-        response = np.ones(len(frequencies))
-        response *= ((9e-21) *   (10 * 1000 * u.parsec) / self.r)
+        response = np.ones(len(frequencies)) * ((9e-21) * (1*u.parsec) / self.r)
         response[frequencies < 0.25 * u.hertz ] = np.nan
         response[frequencies > 1.5 * u.hertz ] = np.nan
         
@@ -144,15 +144,23 @@ class CoreCollapseSupernova(Source):
     """
     name = "CCSN"
     r = 10 * 1000 * u.parsec
+    frequencies = np.logspace(2,3,1000) * u.hertz
     
     def __init__(self, frequencies = None, r = None):
         if frequencies: self.frequencies = frequencies
         if r: self.r = r
 
-    def raw_strain(self, frequencies = None):
+    def characteristic_strain(self, frequencies = None):
         if not frequencies: frequencies = self.frequencies
-        return np.ones(len(frequencies)) * ((8.9e-21) * (10 * 1000 * u.parsec) / self.r)
-    
+        return np.ones(len(frequencies)) * ((8.9e-21) * (1 * u.parsec) / self.r)
+
+class Numerical(Source):
+    """
+    Model a numerical relativity waveform.
+    """
+    name = "Numerical"
+
+    pass
     
 class CBC(Source):
     """
@@ -270,6 +278,8 @@ class IMR(Source):
     def chirp_mass(self):
         return ((self.mass1*self.mass2)**(3./5) / (self.mass1 + self.mass2)**(1./5)).to(u.kilogram)
     
+    def ncycles(self, frequencies=None, M=None):
+        return None
     
     @property
     def w(self):

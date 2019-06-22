@@ -70,6 +70,8 @@ def get_atnf():
         a['W10'].unit = u.millisecond
         a['DM'].unit = u.centimeter**(-3) * u.parsec
         #a['EDOT'].unit = u.erg / u.second
+
+        
         a.add_index('Unnamed: 0')
         a.rename_column('Unnamed: 0', '#')
         a.add_index('PSRJ')

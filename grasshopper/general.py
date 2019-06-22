@@ -21,7 +21,7 @@ def snr(signal, detector):
     SNR : float 
         The signal-to-noise ratio of the signal in the detector.
     """
-    if signal.ncycles(): 
+    if hasattr(signal, "ncycles"): 
         ncycles = np.sqrt(2*signal.ncycles(detector.frequencies))
     else: 
         ncycles = 1
