@@ -390,6 +390,84 @@ class AdvancedLIGO(Interferometer):
     
     def noise_spectrum(self, x):
         return (x)**(-4.14) -5*x**(-2) + ((111 * (1-x**2 +0.5*x**4))/(1+0.5*x**2))
+
+class EinsteinTelescope(Interferometer):
+    """
+    The Einstein Telescope.
+    """
+    name = "Einstein Telescope"
+    f0 = 1.0 * u.hertz
+
+    frequency_range = [f0, 1e4*u.hertz]
+
+    frequencies =  np.logspace(0, 4, 4000) * u.hertz
+    
+    configurations = {
+        "ET-D-Sum": "data/et-d-curve.txt",
+        }
+
+    def __init__(self, frequencies=None, configuration="ET-D-Sum", obs_time=None):
+        """
+        Create a new Einstein Telescope object.
+        By default the ET-D configuration is used, and the PSD is the sum of the two interferometers' sensitivity curves.
+        """
+        
+        if frequencies: self.frequencies = frequencies
+        self.configuration = configuration
+        self.obs_time = obs_time
+        
+        if configuration: 
+            self.name = "{} [{}]".format(self.name, configuration)
+
+
+    def psd(self, frequencies=None):
+        """
+        Calculate the one-sided power spectral desnity for a detector. 
+        If a particular configuration is specified then the results will be
+        returned for a spline fit to that configuration's curve, if available.
+        
+        Parameters
+        ----------
+        frequencies : ndarray
+            An array of frequencies where the PSD should be evaluated.
+            
+        configuration : str
+            The configuration of the detector for which the curve should be returned.
+        """
+        if not frequencies: frequencies = self.frequencies
+
+
+        # The ET curves are all given as PSDs
+        if self.configuration:
+            configuration = self.configuration
+            datafile = self.configurations[configuration]
+            data = np.genfromtxt(os.path.join(os.path.dirname(__file__), datafile))
+
+            d_frequencies = data[:,0]
+
+            # This would almost definitely be better handled by splitting these curves into their own files.
+            if self.configuration == "ET-D-Sum":
+                col = 3
+            
+            d_sensitivity = data[:,col]
+            
+            tck = interpolate.splrep(d_frequencies, d_sensitivity, s=0)
+            interp_sensitivity = interpolate.splev(frequencies, tck, der=0)
+            interp_sensitivity[frequencies<self.fs]=np.nan
+            return (interp_sensitivity)**2 * u.hertz**-1
+            
+        
+        x = frequencies / self.f0
+        xs = self.fs / self.f0
+        sh = self.noise_spectrum(x)
+
+        if self.obs_time:
+            sh /= (self.obs_time.to(u.second))
+        
+        sh[frequencies<self.fs]=np.nan
+        return sh * self.S0
+# Make a little shim so you can call EinsteinTelscope as ET
+ET = EinsteinTelescope    
     
 class GEO(Interferometer):
     """
