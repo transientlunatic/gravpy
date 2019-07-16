@@ -24,7 +24,7 @@ test_requirements = [
 
 setup(
     name='gravpy',
-    version='0.1.0',
+    version='0.2.1',
     description="A sandbox for gravitational wave astronomy.",
     long_description=readme + '\n\n' + history,
     author="Daniel Williams",
