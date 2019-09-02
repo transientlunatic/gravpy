@@ -7,6 +7,8 @@ import scipy.integrate as integrate
 import numpy.linalg as la
 import os
 
+from .plotting import *
+
 def rot_z(phi):
     return np.array([
             [np.cos(phi), -np.sin(phi), 0],
@@ -35,14 +37,6 @@ class Detector():
     different ways of expressing the noise levels (sensitivity)
     of any detector.
     """
-
-    # def energy(self, frequencies=None):
-    #     """
-    #     Convert the PSD from units of Hz**-.5 to Jansky.
-    #     """
-    #     if not isinstance(frequencies, type(None)): frequencies = self.frequencies
-    #     conversion = (4 * c.c**3 * frequencies**2) / (np.pi * c.G)
-    #     return psd(frequencies) * conversion
     
     def noise_amplitude(self, frequencies=None):
         """
@@ -102,10 +96,12 @@ class Detector():
         
         if axis: 
             line = axis.loglog(self.frequencies, self.noise_amplitude(), label=self.name, lw=lw, **kwargs)
-            axis.set_xlabel('Frequency [Hz]')
-            axis.set_ylabel('Characteristic Strain')
+            axis.set_xlabel('Frequency / Hz')
+            axis.set_ylabel("Strain / Hz$^{-0.5}$")
 
-        return line
+            #labelLines([line])
+            
+            return line
         
 
 class Interferometer(Detector):
@@ -135,22 +131,6 @@ class Interferometer(Detector):
         if configuration: 
             self.name = "{} [{}]".format(self.name, configuration)
     
-    # def noise_spectrum(self, x):
-    #     """
-    #     Return the default noise spectrum for the interferometer.
-        
-    #     Parameters
-    #     ----------
-    #     x : float
-    #         The rescaled frequency at which the fit should be evaluated.
-            
-    #     Returns
-    #     -------
-    #     float
-    #         The sensitivity of the interferometer at the frequency provided.
-    #     """
-    #     return (3.4*x)**(-30) + 34*x**(-1) + (20 * (1 - x**2 + 0.4*x**4))/(1 + 0.5*x**2)
-    
     def psd(self, frequencies=None):
         """
         Calculate the one-sided power spectral desnity for a detector. 
@@ -169,8 +149,14 @@ class Interferometer(Detector):
             
         if self.configuration:
             configuration = self.configuration
-            d_frequencies, d_sensitivity = self.configurations[configuration]
-            d_frequencies, d_sensitivity = np.genfromtxt(os.path.join(os.path.dirname(__file__),d_frequencies)), np.genfromtxt(os.path.join(os.path.dirname(__file__),d_sensitivity))
+            if len(self.configurations[configuration]) == 2:                
+                d_frequencies, d_sensitivity = self.configurations[configuration]
+                d_frequencies, d_sensitivity = np.genfromtxt(os.path.join(os.path.dirname(__file__),d_frequencies)), np.genfromtxt(os.path.join(os.path.dirname(__file__),d_sensitivity))
+            else:
+                filepath = self.configurations[configuration][0]
+                data = np.genfromtxt(os.path.join(os.path.dirname(__file__), filepath))
+                d_frequencies, d_sensitivity = data[:,0], data[:,1]
+                
             tck = interpolate.splrep(d_frequencies, d_sensitivity, s=0)
             interp_sensitivity = interpolate.splev(frequencies, tck, der=0)
             interp_sensitivity[frequencies<self.fs]=np.nan
@@ -400,7 +386,8 @@ class AdvancedLIGO(Interferometer):
     detector_tensor = length * (np.outer(xhat, xhat) - np.outer(yhat, yhat))
     
     configurations = {
-            'O1': ['data/aligo_freqVector.txt', 'data/o1_data50Mpc_step1.txt']
+        'O1': ['data/aligo_freqVector.txt', 'data/o1_data50Mpc_step1.txt'],
+        'A+': ['data/aplus-asd.dat'],
                       }
     
     def noise_spectrum(self, x):
@@ -409,6 +396,8 @@ class AdvancedLIGO(Interferometer):
 class GEO(Interferometer):
     """
     The GEO600 Interferometer
+
+    
     """
     name = "GEO600"
     f0 = 150 * u.hertz
