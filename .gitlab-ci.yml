@@ -3,6 +3,7 @@ stages:
   - build
   - deploy
 
+image: python:3.7
 
 pages:
   image: python:3.6
@@ -65,6 +66,7 @@ wheel:
       - dist
 
 deploy:wheel:
+  image: python:3.7
   stage: deploy
   script:
     - pip install twine
