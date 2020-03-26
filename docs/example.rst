@@ -31,19 +31,19 @@ We can now simulate some interferometers. Let's start with Advanced LIGO.
 ::
    aligo = ifo.AdvancedLIGO()
 
-We can take a look at the sensitivity curve using the `~aligo.plot()` method:
+We can take a look at the sensitivity curve using the `aligo.plot()` method:
 
-.. plot::
+.. plot::   
    
    import matplotlib.pyplot as plt
    import gravpy.interferometers as ifo
    aligo = ifo.AdvancedLIGO()
 
-   plt.style.use('ggplot')
-   f, ax = plt.subplots(1)
+   f, ax = plt.subplots(1, figsize=(4,4), dpi=150)
    
    aligo.plot(ax)
 
+   
 Simulating an event
 -------------------   
    
@@ -67,7 +67,6 @@ Let's have a look at the frequency behaviour of the event:
    cbc = sources.CBC(frequencies=np.logspace(-4, 5, 1000) * u.hertz, 
                      m1=32*u.solMass, m2=30*u.solMass, r=0.8*1e9*u.parsec)
 
-   plt.style.use('ggplot')
    f, ax = plt.subplots(1)
    
    cbc.plot(ax)
@@ -97,14 +96,13 @@ Let's have a look at this and the event on a plot.
   o1_aligo = ifo.AdvancedLIGO(configuration='O1')
   cbc = sources.CBC(frequencies=np.logspace(-4, 5, 1000) * u.hertz, 
                      m1=32*u.solMass, m2=30*u.solMass, r=0.8*1e9*u.parsec)
-
-  plt.style.use('ggplot')
   f, ax = plt.subplots(1)
   o1_aligo.plot(ax)
   cbc.plot(ax)
 
 
 .. plot::
+   :include_source: True
 
    import matplotlib.pyplot as plt
    import gravpy.interferometers as ifo
@@ -113,11 +111,10 @@ Let's have a look at this and the event on a plot.
    o1_aligo = ifo.AdvancedLIGO(configuration='O1')
    cbc = sources.CBC(frequencies=np.logspace(-4, 5, 1000) * u.hertz, 
                      m1=32*u.solMass, m2=30*u.solMass, r=0.8*1e9*u.parsec)
-
-   plt.style.use('ggplot')
    f, ax = plt.subplots(1)
    o1_aligo.plot(ax)
    cbc.plot(ax)
+
 
 The SNR looks better now:
 

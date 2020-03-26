@@ -26,11 +26,16 @@ User Guide
 
    readme
    installation
+   sources
+   interferometers
    example
    usage
+   other-software
 
 Developer Guide
 ===============
+
+If you'd like to be involved in developing or expanding `gravpy` then you should start by reading the contribution guide.
 
 .. toctree::
    :maxdepth: 2
