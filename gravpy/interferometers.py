@@ -41,7 +41,7 @@ class Detector():
     def noise_amplitude(self, frequencies=None):
         """
         The noise amplitude for a detector is defined as
-        $h^2_n(f) = f S_n(f)$
+        :math:`h^2_n(f) = f S_n(f)`
         and is designed to incorporate the effect of integrating 
         an inspiralling signal.
         
@@ -81,6 +81,10 @@ class Detector():
         return littleh
     
     def srpsd(self, frequencies=None):
+        """
+        The square-root of the PSD.
+        """
+        
         if not frequencies: frequencies = self.frequencies
         return np.sqrt(self.psd(frequencies))
     
@@ -97,7 +101,7 @@ class Detector():
         if axis: 
             line = axis.loglog(self.frequencies, self.noise_amplitude(), label=self.name, lw=lw, **kwargs)
             axis.set_xlabel('Frequency / Hz')
-            axis.set_ylabel("Strain / Hz$^{-0.5}$")
+            axis.set_ylabel("Characteristic Strain / Hz$^{-0.5}$")
 
             #labelLines([line])
             
@@ -107,6 +111,12 @@ class Detector():
 class Interferometer(Detector):
     """
     The base class to describe an interferometer.
+
+    Attributes
+    ----------
+    configuration : str, optional
+       A specific configuration for a given interferometer.
+       This allows for the sensitivity from a given run to be used, or from a specific tuning.
     """
     name = "Generic Interferometer"
     f0 = 150 * u.hertz
@@ -315,6 +325,26 @@ class TimingArray(Detector):
 
 
 class BDecigo(Interferometer):
+    """
+    The B-Decigo noise curve [arxivcurve]_.
+
+    Examples
+    --------
+
+    .. plot::
+
+       import matplotlib.pyplot as plt
+       import gravpy.interferometers as ifo
+       bdecigo = ifo.BDecigo()
+
+       f, ax = plt.subplots(1)
+   
+       bdecigo.plot(ax)
+
+    References
+    ----------
+    .. [arxivcurve] arxiv:1802.06977
+    """
     name = "BDecigo"
     # B-DECIGO noise curve in arxiv:1802.06977
     S0 = 4.040e-46 * u.hertz**-1
@@ -328,6 +358,19 @@ class BDecigo(Interferometer):
 class Decigo(Interferometer):
     """
     The full, original Decigo noise curve, from  arxiv:1101.3940.
+
+    Examples
+    --------
+
+    .. plot::
+
+       import matplotlib.pyplot as plt
+       import gravpy.interferometers as ifo
+       decigo = ifo.Decigo()
+
+       f, ax = plt.subplots(1)
+   
+       decigo.plot(ax)
     """
     name = "Decigo"
     fp = 7.36 * u.hertz
@@ -369,7 +412,55 @@ class BigBangObservatory(Interferometer):
     
 class AdvancedLIGO(Interferometer):
     """
-    The aLIGO Interferometer
+    The advanced LIGO Interferometer.
+
+    Supported configurations are
+
+    +---------------+--------------------------------------+
+    |Configuration  | Description                          |
+    +===============+======================================+
+    | O1            | First observing run sensitivity      |
+    +---------------+--------------------------------------+
+    | A+            | The advanced-plus design sensitivity |
+    +---------------+--------------------------------------+
+
+    Attributes
+    ----------
+    configuration : str, optional
+       A specific configuration for a given interferometer.
+       This allows for the sensitivity from a given run to be used, or from a specific tuning.
+
+    See also
+    --------
+    InitialLIGO : The initial LIGO interferometer
+
+    Examples
+    --------
+
+    Specific configurations can be loaded by passing the `configuration` keyword argument.
+
+    >>> aligo = ifo.AdvancedLIGO(configuration="O1")
+
+    It's straight-forward to plot the sensitivity curve for the detector at design sensitivity.
+    
+    >>> import matplotlib.pyplot as plt
+    >>> import gravpy.interferometers as ifo
+    >>> aligo = ifo.AdvancedLIGO()
+    >>> f, ax = plt.subplots(1)
+    >>> aligo.plot(ax)
+
+    Which should produce an output along the lines of
+
+    .. plot::
+
+       import matplotlib.pyplot as plt
+       import gravpy.interferometers as ifo
+       aligo = ifo.AdvancedLIGO()
+
+       f, ax = plt.subplots(1)
+   
+       aligo.plot(ax)
+
     """
     name = "aLIGO"
     f0 = 215 * u.hertz
@@ -512,6 +603,10 @@ class LISA(Interferometer):
         
     
     def psd(self, frequencies):
+        """
+        The power spectral density.
+        """
+        
         # See https://arxiv.org/pdf/1803.01944.pdf for this
 
         first = (10 / 3 * self.L**-2)

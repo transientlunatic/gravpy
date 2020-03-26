@@ -4,6 +4,7 @@ def snr(signal, detector):
     """
     Calculate the SNR of a signal in a given detector,
     assuming that it has been detected with an optimal filter.
+    
     See e.g. arxiv.org/abs/1408.0740
     
     Parameters
@@ -30,4 +31,3 @@ def snr(signal, detector):
     fraction = 4*(np.abs(ampli)**2 / noise)
     fraction[np.isnan(fraction)]=0
     return np.sqrt(np.trapz(fraction, x=detector.frequencies, dx=0.01*u.hertz))
-
