@@ -70,7 +70,7 @@ deploy:wheel:
   stage: deploy
   script:
     - pip install twine
-    - twine upload dist/*
+    - twine upload --username $TWINE_USERNAME --password $TWINE_PASSWORD dist/*
   only:
     # Only upload the repository on a new tag
     - tags
