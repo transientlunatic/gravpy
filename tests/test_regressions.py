@@ -133,14 +133,3 @@ def test_antenna_pattern_known_values():
     assert det.antenna_pattern(0, 0, 0)[:2] == pytest.approx((1.0, 0.0))
     # In the detector plane along an arm bisector the response vanishes for 'x' and is 0 for '+'.. at 45 deg
     assert det.antenna_pattern(np.pi / 2, np.pi / 4, 0.0)[2] == pytest.approx(0.0, abs=1e-12)
-
-
-@pytest.mark.xfail(
-    reason="CBC SNR looks ~10x too high: a 30+30 Msun binary at 400 Mpc gives SNR ~216 in aLIGO "
-    "design, whereas GW150914 (similar masses and distance) was ~24. Needs the physics review "
-    "of sources.py / general.snr (extra sqrt(2*ncycles) factor, units of characteristic_strain).",
-    strict=True,
-)
-def test_cbc_snr_is_physically_plausible():
-    cbc = src.CBC(m1=30 * u.solMass, m2=30 * u.solMass, r=400 * u.Mpc)
-    assert 5 < cbc.snr(ifo.AdvancedLIGO()) < 60

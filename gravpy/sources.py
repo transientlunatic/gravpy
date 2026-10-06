@@ -198,13 +198,15 @@ class CBC(Source):
         fdot : ndarray
             The df/dt of each frequency.
         """
-        if frequencies is None: frequencies = 0.5*self.frequencies
+        if frequencies is None: frequencies = self.frequencies
         if M is None: M = self.chirp_mass()
         return (((96*np.pi**(8./3)) / (5 * c.c**5)) * (c.G*M)**(5./3) * frequencies**(11./3))#.to(u.hertz**2)
 
     def ncycles(self, frequencies=None, M=None):
         """
-        Calculate the number of cycles that the CBC spends in each frequency bin.
+        Calculate the number of gravitational-wave cycles that the CBC spends per
+        logarithmic frequency interval, :math:`f^2 / \\dot{f}`.  Integrating this over
+        :math:`\\mathrm{d}\\ln f` gives the total number of cycles between two frequencies.
         
         Parameters
         ---------
@@ -221,11 +223,7 @@ class CBC(Source):
         """
         if frequencies is None: frequencies = 0.5*self.frequencies
         if M is None: M = self.chirp_mass()
-        return np.sqrt(frequencies**2/ self.fdot(frequencies, M))#.to(1)
-    
-    def characteristic_strain(self, frequencies=None):
-        if frequencies is None: frequencies = self.frequencies
-        return np.sqrt(2*self.ncycles(frequencies))*np.sqrt(4 * frequencies**2 * np.abs(self.raw_strain(frequencies))**2)
+        return (frequencies**2 / self.fdot(frequencies, M)).decompose()
     
     def chirp_mass(self):
         return ((self.m1*self.m2)**(3./5) / (self.m1 + self.m2)**(1./5)).to(u.kilogram)
@@ -236,7 +234,8 @@ class CBC(Source):
     def raw_strain(self, frequencies=None):
         if frequencies is None: frequencies = self.frequencies
         h = ((1./self.r) * ((5*np.pi)/(24*c.c**3))**(0.5) * (c.G * self.M)**(5./6) * (np.pi*frequencies)**(-7./6)).to(1/u.hertz)
-        h[frequencies>2*self.fisco()] = np.nan
+        # The inspiral model is only valid up to the (gravitational-wave) ISCO frequency
+        h[frequencies>self.fisco()] = np.nan
         return h
 
 
