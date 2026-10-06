@@ -1,8 +1,17 @@
+"""
+Helpers for labelling lines on sensitivity-curve plots.
+"""
+from math import atan2, degrees
+
+import matplotlib.patheffects as path_effects
+import numpy as np
+
+
 def labelLine(line,x,label=None,align=True, yshift=2, **kwargs):
     
     ax = line.axes
-    xdata = line.get_xdata().value
-    ydata = line.get_ydata().value
+    xdata = getattr(line.get_xdata(), 'value', line.get_xdata())
+    ydata = getattr(line.get_ydata(), 'value', line.get_ydata())
     
     if (x < xdata[0]) or (x > xdata[-1]):
         print('x label location is outside data range!')
@@ -55,7 +64,7 @@ def labelLine(line,x,label=None,align=True, yshift=2, **kwargs):
     if 'zorder' not in kwargs:
         kwargs['zorder'] = 2.5
 
-    label = ax.text(x,y,label,rotation=trans_angle,fontdict=lato_small, **kwargs)
+    label = ax.text(x,y,label,rotation=trans_angle, **kwargs)
     label.set_path_effects([path_effects.Stroke(linewidth=2, foreground='white'),
                            path_effects.Normal()])
 
@@ -75,7 +84,7 @@ def labelLines(lines,align=True,xvals=None,**kwargs):
     if xvals is None:
         xvals = []
         for line in lines:
-            xvals.append(line.get_data()[0][-1].value*0.8)
+            xvals.append(float(getattr(line.get_data()[0][-1], 'value', line.get_data()[0][-1]))*0.8)
 
     for line,x,label in zip(labLines,xvals,labels):
         labelLine(line,x,label,align,**kwargs)

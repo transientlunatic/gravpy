@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gravpy"
+dynamic = ["version"]
+description = "A sandbox for gravitational wave astronomy."
+readme = "README.rst"
+license = { text = "ISC" }
+authors = [{ name = "Daniel Williams", email = "daniel.williams@glasgow.ac.uk" }]
+keywords = ["gravitational waves", "detector sensitivity", "noise curves"]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=2.0",
+    "scipy",
+    "matplotlib",
+    "astropy",
+    # gravpy.sources imports gravpy.data.atnf, which needs pandas
+    "pandas",
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: ISC License (ISCL)",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Astronomy",
+]
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-cov"]
+# gravpy.timingarray queries the ATNF catalogue
+pulsars = ["psrqpy"]
+# Independent implementations used by the reference-comparison tests.
+reference = ["lalsuite"]
+docs = ["sphinx", "numpydoc"]
+lint = ["ruff"]
+
+[project.urls]
+Homepage = "https://github.com/transientlunatic/gravpy"
+
+[tool.setuptools]
+packages = ["gravpy", "gravpy.data"]
+
+[tool.setuptools.dynamic]
+version = { attr = "gravpy.__version__" }
+
+[tool.setuptools.package-data]
+gravpy = ["pulsar_*.txt"]
+"gravpy.data" = ["*.txt", "*.dat"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+filterwarnings = ["ignore::DeprecationWarning:astropy.*"]
+markers = [
+    "reference: compares against an independent implementation (needs the 'reference' extra)",
+]
+
+[tool.ruff]
+extend-exclude = ["docs", "notebooks"]
+
+[tool.ruff.lint]
+# Only real errors for now: syntax errors, undefined names, and unused-expression bugs.
+select = ["E9", "F63", "F7", "F82"]

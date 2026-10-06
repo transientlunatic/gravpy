@@ -49,13 +49,13 @@ lint:
 	flake8 gravpy tests
 
 test:
-	python setup.py test
+	pytest
 
 test-all:
-	tox
+	pytest
 
 coverage:
-	coverage run --source gravpy setup.py test
+	pytest --cov=gravpy
 	coverage report -m
 	coverage html
 	$(BROWSER) htmlcov/index.html
@@ -72,13 +72,11 @@ servedocs: docs
 	watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs html' -R -D .
 
 release: clean
-	python setup.py sdist upload
-	python setup.py bdist_wheel upload
+	python -m build
 
 dist: clean
-	python setup.py sdist
-	python setup.py bdist_wheel
+	python -m build
 	ls -l dist
 
 install: clean
-	python setup.py install
+	pip install .
