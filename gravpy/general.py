@@ -30,4 +30,4 @@ def snr(signal, detector):
     ampli = signal.raw_strain(detector.frequencies) * ncycles
     fraction = 4*(np.abs(ampli)**2 / noise)
     fraction[np.isnan(fraction)]=0
-    return np.sqrt(np.trapz(fraction, x=detector.frequencies, dx=0.01*u.hertz))
+    return np.sqrt(np.trapezoid(fraction, x=detector.frequencies))

@@ -1,19 +1,15 @@
 #
 import numpy as np
 import matplotlib.pyplot as plt
-import data.atnf
 import scipy.linalg as la
 from astropy.io import ascii
 from astropy.table import Table, join
 import astropy.units as u
 
 from astropy.coordinates import SkyCoord
-import functools32
-import psrqpy
+import os
 
-from interferometers import Detector
-
-from pkg_resources import resource_string, resource_stream, resource_filename
+from .interferometers import Detector
 
 def hellingsdowns_factor(pulsar1, pulsar2):
     """
@@ -27,7 +23,7 @@ def hellingsdowns_factor(pulsar1, pulsar2):
     second = (1 - np.cos(sep))/2
     last = 0
     if pulsar1 == pulsar2: return 1 #last = 0.5
-    return 1.5*first - 0.25 * second + 0.5 
+    return float(1.5*first - 0.25 * second + 0.5)
 
 class Pulsar(object):
     def __init__(self, psrj, cadence, obstime, rms, position):
@@ -83,16 +79,15 @@ class Pulsar(object):
         return (2 * 1./self.cadence *  self.rms**2)*outs
 
 class TimingArray(Detector):
-    pulsars = []
     frequencies = np.logspace(-9, -6)
     def __init__(self, pulsars):
+        import psrqpy  # needs network access and the optional `pulsars` extra
+        self.pulsars = []
         pulsar_list =  ascii.read(pulsars, delimiter=" ", guess=False)
         pulsar_list.add_index('Name')
 
         params = ["RAJ", "DECJ"]
         
-        print(pulsar_list['Name'])
-
         query = psrqpy.QueryATNF(params, psrs=pulsar_list['Name'])
         pq = query.get_pulsars()
         
@@ -117,7 +112,6 @@ class TimingArray(Detector):
             plt.plot(location.ra, location.dec, '.', color='b')
         return fig
             
-    @functools32.lru_cache(maxsize=1)
     def hdmatrix(self):
         """
         Compute the Hellings-Down matrix for the entire array.
@@ -157,8 +151,8 @@ class TimingArray(Detector):
         """
         out = 0
         hdmat = self.hdmatrix()
-        for i in xrange(len(hdmat[0])):
-            for j in xrange(i+1, len(hdmat[0])): 
+        for i in range(len(hdmat[0])):
+            for j in range(i+1, len(hdmat[0])): 
                 out += hdmat[i,j]**2
         return out
     
@@ -182,11 +176,11 @@ class TimingArray(Detector):
         [1] 10.1103/PhysRevD.88.124032
         
         """
-        if not isinstance(frequency, type(None)):  frequency = self.frequencies
+        if frequency is None:  frequency = self.frequencies
         out = 0
         hdmat = self.hdmatrix()
-        for i in xrange(len(hdmat[0])):
-            for j in xrange(i+1, len(hdmat[0])): 
+        for i in range(len(hdmat[0])):
+            for j in range(i+1, len(hdmat[0])): 
                 out += hdmat[i,j]**2 / (self.pulsars[i].psd(frequency) * self.pulsars[j].psd(frequency))
         eff_psd = (12*np.pi*frequency**2) *out**(-0.5)
         return eff_psd
@@ -199,7 +193,9 @@ class IPTA(TimingArray):
     """
     name = "IPTA"
     def __init__(self):
-        data_file = resource_filename(__name__, "data/IPTA-pulsars.dat")
+        import psrqpy  # needs network access and the optional `pulsars` extra
+        self.pulsars = []
+        data_file = os.path.join(os.path.dirname(__file__), "data", "IPTA-pulsars.dat")
         pulsar_list =  ascii.read(data_file, delimiter=" ", guess=False)
         pulsar_list.add_index('Name')
 

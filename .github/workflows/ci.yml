@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install ruff
-      # Reports undefined names etc. Known failures are listed in tests/test_known_bugs.py;
+      # Reports undefined names etc. Known failures are tracked as strict xfails in tests/;
       # make this blocking once they are fixed.
       - run: ruff check gravpy tests
         continue-on-error: true

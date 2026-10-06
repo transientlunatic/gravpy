@@ -1,7 +1,7 @@
 """
 Characterisation tests: what works *today*.
 
-Anything that does not work is recorded in test_known_bugs.py as a strict xfail,
+Anything that does not work is recorded in test_regressions.py (fixed) or as strict xfails,
 so that fixing it forces the marker to be removed.
 """
 import importlib

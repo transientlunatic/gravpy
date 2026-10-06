@@ -12,7 +12,7 @@ authors = [{ name = "Daniel Williams", email = "daniel.williams@glasgow.ac.uk" }
 keywords = ["gravitational waves", "detector sensitivity", "noise curves"]
 requires-python = ">=3.10"
 dependencies = [
-    "numpy",
+    "numpy>=2.0",
     "scipy",
     "matplotlib",
     "astropy",
@@ -29,6 +29,8 @@ classifiers = [
 
 [project.optional-dependencies]
 test = ["pytest", "pytest-cov"]
+# gravpy.timingarray queries the ATNF catalogue
+pulsars = ["psrqpy"]
 # Independent implementations used by the reference-comparison tests.
 reference = ["lalsuite"]
 docs = ["sphinx", "numpydoc"]

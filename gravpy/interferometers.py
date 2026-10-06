@@ -7,7 +7,7 @@ import scipy.integrate as integrate
 import numpy.linalg as la
 import os
 
-from .plotting import *
+from .plotting import labelLine, labelLines  # noqa: F401
 
 def rot_z(phi):
     return np.array([
@@ -16,11 +16,11 @@ def rot_z(phi):
             [0,0,1]
         ])
 
-def rot_y(psi):
+def rot_y(theta):
     return np.array([
-            [np.cos(phi), 0,  -np.sin(phi)],
+            [np.cos(theta), 0,  np.sin(theta)],
             [0, 1,   0],
-            [np.sin(phi),           0,             np.cos(phi)]
+            [-np.sin(theta),           0,             np.cos(theta)]
         ])
 
 def rot_x(theta):
@@ -29,6 +29,30 @@ def rot_x(theta):
             [0, np.cos(theta), -np.sin(theta)],
             [0, np.sin(theta),  np.cos(theta)]
         ])
+
+def _interpolate_asd(f_data, asd_data, frequencies):
+    """
+    Interpolate a tabulated amplitude spectral density onto the requested frequencies.
+
+    The interpolation is monotone (PCHIP) in log-log space, so it cannot ring around
+    narrow spectral lines the way an interpolating cubic spline does, and it stays
+    positive.  Frequencies outside the tabulated range return NaN.
+
+    Parameters
+    ----------
+    f_data, asd_data : ndarray
+        The tabulated frequencies (Hz) and ASD.
+    frequencies : Quantity or ndarray
+        Frequencies (Hz) at which to evaluate the ASD.
+    """
+    f_req = np.asarray(u.Quantity(frequencies, u.hertz).value, dtype=float)
+    order = np.argsort(f_data)
+    interpolator = interpolate.PchipInterpolator(
+        np.log(np.asarray(f_data)[order]), np.log(np.asarray(asd_data)[order]), extrapolate=False
+    )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return np.exp(interpolator(np.log(f_req)))
+
 
 class Detector():
     """
@@ -56,8 +80,8 @@ class Detector():
             An array of the noise amplitudes correcsponding 
             to the input frequency values
         """
-        if not frequencies: frequencies = self.frequencies
-        return np.sqrt(self.frequencies*self.psd(frequencies))
+        if frequencies is None: frequencies = self.frequencies
+        return np.sqrt(frequencies*self.psd(frequencies))
     
     def energy_density(self, frequencies=None):
         """
@@ -75,7 +99,7 @@ class Detector():
             An array of the dimensionless energy density of the sensitivity of
             the detector.
         """
-        if not frequencies: frequencies = self.frequencies
+        if frequencies is None: frequencies = self.frequencies
         bigH = (2*np.pi**2)/3 * frequencies**3 * self.psd(frequencies)
         littleh = bigH / ((100*u.kilometer / u.second / u.megaparsec).to(u.hertz))**2
         return littleh
@@ -85,7 +109,7 @@ class Detector():
         The square-root of the PSD.
         """
         
-        if not frequencies: frequencies = self.frequencies
+        if frequencies is None: frequencies = self.frequencies
         return np.sqrt(self.psd(frequencies))
     
     def plot(self, axis=None, **kwargs):
@@ -155,7 +179,7 @@ class Interferometer(Detector):
         configuration : str
             The configuration of the detector for which the curve should be returned.
         """
-        if not isinstance(frequencies, type(None)): frequencies = self.frequencies
+        if frequencies is None: frequencies = self.frequencies
             
         if self.configuration:
             configuration = self.configuration
@@ -167,8 +191,7 @@ class Interferometer(Detector):
                 data = np.genfromtxt(os.path.join(os.path.dirname(__file__), filepath))
                 d_frequencies, d_sensitivity = data[:,0], data[:,1]
                 
-            tck = interpolate.splrep(d_frequencies, d_sensitivity, s=0)
-            interp_sensitivity = interpolate.splev(frequencies, tck, der=0)
+            interp_sensitivity = _interpolate_asd(d_frequencies, d_sensitivity, frequencies)
             interp_sensitivity[frequencies<self.fs]=np.nan
             return (interp_sensitivity)**2 * u.hertz**-1
             
@@ -185,62 +208,64 @@ class Interferometer(Detector):
 
     def antenna_pattern(self, theta, phi, psi):
         """
-        Produce the antenna pattern for a detector, given its detector tensor, 
+        Produce the antenna pattern for a detector, given its arm directions
         and a set of angles.
-        
+
+        The detector tensor is :math:`D = (\\hat{x}\\hat{x} - \\hat{y}\\hat{y})/2`, where
+        :math:`\\hat{x}` and :math:`\\hat{y}` are the unit vectors along the two arms, and
+        :math:`F_{+,\\times} = D^{ij} e^{+,\\times}_{ij}`.  The source direction is given by
+        the polar angle `theta` from the detector's normal (z axis) and the azimuth `phi`
+        from the x arm.  For an L-shaped detector with arms along x and y
+
+        .. math::
+           F_+ = \\frac{1}{2}(1+\\cos^2\\theta)\\cos 2\\phi\\cos 2\\psi
+                 - \\cos\\theta\\sin 2\\phi\\sin 2\\psi
+
+        (e.g. Sathyaprakash & Schutz 2009, Living Rev. Relativ. 12, 2), so the total
+        response :math:`\\sqrt{F_+^2+F_\\times^2}` is between 0 and 1 and independent of `psi`.
+
         Parameters
         ----------
         theta : float
-            The altitude angle.
+            The polar angle of the source, in radians.
         phi : float
-            The azimuthal angle.
+            The azimuthal angle of the source, in radians.
         psi : float or list
-            The polarisation angle. If psi is a list of two angles the returned 
-            antenna patterns will be the integrated response between those two 
-            polsarisation angles.
-            
+            The polarisation angle, in radians. If psi is a list of two angles the returned
+            responses are the root-mean-square values of F+ and Fx averaged over
+            polarisation angles between those two angles.
+
         Returns
         -------
         F+ : float
-            The antenna response to the '+' polarisation state.
+            The magnitude of the antenna response to the '+' polarisation state.
         Fx : float
-            The antenna response to the 'x' polsarisation state.
+            The magnitude of the antenna response to the 'x' polarisation state.
         |F| : float
             The combined antenna response (sqrt(F+^2 + Fx^2)).
         """
-        detector = self.detector_tensor / self.length
-        # The unrotated basis of the gravitational wave
-        e = np.array([
-            [1,0,0],
-            [0,1,0],
-            [0,0,1]
-        ])
-        # Calculate the rotated basis
-        # Rotate phi about z
-        # Rotate theta about x
-        # Rotate psi about z
-        #rot_basis = np.dot(np.dot(np.dot(np.dot(dhat,rot_x(theta)), rot_z(phi)), rot_z(psi)), e)
-        rot_basis = np.dot( np.dot( rot_x(theta), rot_z(phi)), e)
+        detector = 0.5 * (np.outer(self.xhat, self.xhat) - np.outer(self.yhat, self.yhat))
 
+        # Orthonormal basis on the plane of the sky: u points towards increasing theta,
+        # v towards increasing phi.
+        u_hat = np.array([np.cos(theta)*np.cos(phi), np.cos(theta)*np.sin(phi), -np.sin(theta)])
+        v_hat = np.array([-np.sin(phi), np.cos(phi), 0.0])
 
-        def plus_polarisation(psi, rot_basis):
-            alpha, beta, _ = rot_basis
-            rot_basis = np.dot(rot_basis, rot_z(psi))
-            return np.outer(alpha, alpha) - np.outer(beta, beta)
-        def cross_polarisation(psi, rot_basis):
-            alpha, beta, _ = rot_basis
-            ot_basis = np.dot(rot_basis, rot_z(psi))
-            return np.outer(alpha, beta) + np.outer(beta, alpha)
+        def responses(psi):
+            p = u_hat*np.cos(psi) + v_hat*np.sin(psi)
+            q = -u_hat*np.sin(psi) + v_hat*np.cos(psi)
+            fplus = np.sum(detector * (np.outer(p, p) - np.outer(q, q)))
+            fcross = np.sum(detector * (np.outer(p, q) + np.outer(q, p)))
+            return fplus, fcross
 
-        # Now the antenna pattern
-        if isinstance(psi, list):
-            fplus  = integrate.quad(lambda psi: (detector*plus_polarisation(psi, rot_basis)).sum(),  psi[0], psi[1])[0]
-            fcross = integrate.quad(lambda psi:((detector* cross_polarisation(psi, rot_basis)).sum()),  psi[0], psi[1])[0]
+        if isinstance(psi, (list, tuple)):
+            lo, hi = psi
+            mean_square = lambda k: integrate.quad(lambda x: responses(x)[k]**2, lo, hi)[0] / (hi - lo)
+            fplus, fcross = np.sqrt(mean_square(0)), np.sqrt(mean_square(1))
         else:
-            fplus = (detector*plus_polarisation(psi, rot_basis)).sum()
-            fcross = (detector* cross_polarisation(psi, rot_basis)).sum()
+            fplus, fcross = responses(psi)
 
-        return np.abs(fplus), np.abs(fcross), np.sqrt(fplus**2 + fcross**2)
+        return float(np.abs(fplus)), float(np.abs(fcross)), float(np.sqrt(fplus**2 + fcross**2))
 
     def skymap(self, nx=200, ny=100, psi=[0, np.pi]):
         """
@@ -484,84 +509,6 @@ class AdvancedLIGO(Interferometer):
     def noise_spectrum(self, x):
         return (x)**(-4.14) -5*x**(-2) + ((111 * (1-x**2 +0.5*x**4))/(1+0.5*x**2))
 
-class EinsteinTelescope(Interferometer):
-    """
-    The Einstein Telescope.
-    """
-    name = "Einstein Telescope"
-    f0 = 1.0 * u.hertz
-
-    frequency_range = [f0, 1e4*u.hertz]
-
-    frequencies =  np.logspace(0, 4, 4000) * u.hertz
-    
-    configurations = {
-        "ET-D-Sum": "data/et-d-curve.txt",
-        }
-
-    def __init__(self, frequencies=None, configuration="ET-D-Sum", obs_time=None):
-        """
-        Create a new Einstein Telescope object.
-        By default the ET-D configuration is used, and the PSD is the sum of the two interferometers' sensitivity curves.
-        """
-        
-        if frequencies: self.frequencies = frequencies
-        self.configuration = configuration
-        self.obs_time = obs_time
-        
-        if configuration: 
-            self.name = "{} [{}]".format(self.name, configuration)
-
-
-    def psd(self, frequencies=None):
-        """
-        Calculate the one-sided power spectral desnity for a detector. 
-        If a particular configuration is specified then the results will be
-        returned for a spline fit to that configuration's curve, if available.
-        
-        Parameters
-        ----------
-        frequencies : ndarray
-            An array of frequencies where the PSD should be evaluated.
-            
-        configuration : str
-            The configuration of the detector for which the curve should be returned.
-        """
-        if not frequencies: frequencies = self.frequencies
-
-
-        # The ET curves are all given as PSDs
-        if self.configuration:
-            configuration = self.configuration
-            datafile = self.configurations[configuration]
-            data = np.genfromtxt(os.path.join(os.path.dirname(__file__), datafile))
-
-            d_frequencies = data[:,0]
-
-            # This would almost definitely be better handled by splitting these curves into their own files.
-            if self.configuration == "ET-D-Sum":
-                col = 3
-            
-            d_sensitivity = data[:,col]
-            
-            tck = interpolate.splrep(d_frequencies, d_sensitivity, s=0)
-            interp_sensitivity = interpolate.splev(frequencies, tck, der=0)
-            interp_sensitivity[frequencies<self.fs]=np.nan
-            return (interp_sensitivity)**2 * u.hertz**-1
-            
-        
-        x = frequencies / self.f0
-        xs = self.fs / self.f0
-        sh = self.noise_spectrum(x)
-
-        if self.obs_time:
-            sh /= (self.obs_time.to(u.second))
-        
-        sh[frequencies<self.fs]=np.nan
-        return sh * self.S0
-# Make a little shim so you can call EinsteinTelscope as ET
-ET = EinsteinTelescope    
-    
 class GEO(Interferometer):
     """
     The GEO600 Interferometer
@@ -574,7 +521,7 @@ class GEO(Interferometer):
     S0 = 1e-46 / u.hertz
     
     def noise_spectrum(self, x):
-        return (3.4*x)**(-30) + 34*x**(-1) + (20 * (1 - x**2 + 0.4*x**4))/(1 + 0.5*x**2)
+        return (3.4*x)**(-30) + 34*x**(-1) + (20 * (1 - x**2 + 0.5*x**4))/(1 + 0.5*x**2)
     
 class InitialLIGO(Interferometer):
     """
@@ -695,38 +642,46 @@ class LISA(Interferometer):
 
 class EinsteinTelescope(Interferometer):
     """
-    The Einstein Telescope Interferometer
+    The Einstein Telescope.
+
+    The only configuration is ET-D, as the sum of the PSDs of its three
+    interferometers (``"ET-D"``, also accepted as ``"ET-D-Sum"``).
     """
     name = "ET"
     frequency_range = [0.1, 1e4] * u.hertz
     frequencies = np.linspace(frequency_range[0].value, frequency_range[1].value, 4000) * u.hertz
 
+    # The tabulated curves start at 1 Hz
+    fs = 1 * u.hertz
     length = 10 * u.kilometer
     configurations = {
-            'ET-D': 'data/ETD-psd.txt'
-                      }
+        'ET-D': 'data/et-d-curve.txt',
+        'ET-D-Sum': 'data/et-d-curve.txt',
+        }
     configuration = "ET-D"
-    
+
+    def __init__(self, frequencies=None, configuration="ET-D", obs_time=None):
+        super().__init__(frequencies=frequencies, configuration=configuration, obs_time=obs_time)
+        self.configuration = configuration
+
     def psd(self, frequencies=None):
         """
-        Calculate the one-sided power spectral desnity for a detector. 
-        If a particular configuration is specified then the results will be
-        returned for a spline fit to that configuration's curve, if available.
-        
+        Calculate the one-sided power spectral density of ET-D (the sum of its three interferometers).
+
         Parameters
         ----------
         frequencies : ndarray
             An array of frequencies where the PSD should be evaluated.
-            
-        configuration : str
-            The configuration of the detector for which the curve should be returned.
+            Defaults to the detector's own frequencies.
+            The result is NaN outside the tabulated range (1 Hz and above).
         """
-        if not isinstance(frequencies, type(None)): frequencies = self.frequencies
-            
-        configuration = self.configuration
-        data = self.configurations[configuration]
-        data = np.genfromtxt(os.path.join(os.path.dirname(__file__), data))
-        tck = interpolate.splrep(data[:,0], data[:,3], s=0)
-        interp_sensitivity = interpolate.splev(frequencies, tck, der=0)
-        interp_sensitivity[frequencies<self.fs]=np.nan
+        if frequencies is None: frequencies = self.frequencies
+
+        data = np.genfromtxt(os.path.join(os.path.dirname(__file__), self.configurations[self.configuration]))
+        # Columns are frequency and the ASD of each of the three ET-D interferometers; the fourth is the sum.
+        interp_sensitivity = _interpolate_asd(data[:,0], data[:,3], frequencies)
+        interp_sensitivity[frequencies<self.fs] = np.nan
         return (interp_sensitivity)**2 * u.hertz**-1
+
+# Shim so you can call EinsteinTelescope as ET
+ET = EinsteinTelescope

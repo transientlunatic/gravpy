@@ -18,12 +18,12 @@ class Source():
     r = 300 * u.parsec
     
     def __init__(self, frequencies=None, M=None, r=None):
-        if frequencies: self.frequencies = frequencies
-        if r: self.r = r
-        if M: self.M = M
+        if frequencies is not None: self.frequencies = frequencies
+        if r is not None: self.r = r
+        if M is not None: self.M = M
       
     def raw_strain(self, frequencies=None):
-        if not frequencies: frequencies = self.frequencies
+        if frequencies is None: frequencies = self.frequencies
         return ((1./self.r) * ((5*np.pi)/(24*c.c**3))**(0.5) * (c.G * self.chirp_mass())**(5./6) * (np.pi*frequencies)**(-7./6)).to(1/u.hertz)
     
     def psd(self, frequencies=None):
@@ -38,20 +38,23 @@ class Source():
         Returns : ndarray
             An array of the PSDs at the given frequencies for this source.
         """
-        if not frequencies: frequencies = self.frequencies
+        if frequencies is None: frequencies = self.frequencies
         return 2 * (frequencies**0.5) * np.abs(self.raw_strain(frequencies))
     
     def srpsd(self, frequencies=None):
-        if not frequencies: frequencies = self.frequencies
+        if frequencies is None: frequencies = self.frequencies
         return np.sqrt(self.psd(frequencies)) 
         
     def characteristic_strain(self, frequencies=None):
-        if not frequencies: frequencies = self.frequencies
+        if frequencies is None: frequencies = self.frequencies
         return np.sqrt(4 * frequencies**2 * np.abs(self.raw_strain(frequencies))**2)
     
-    def energy_density(frequencies=None):
-        if not frequencies: frequencies = self.frequencies
-        return (2*pi**2)/3 * frequencies**3 * self.psd(frequencies)
+    def chirp_mass(self):
+        return self.M
+
+    def energy_density(self, frequencies=None):
+        if frequencies is None: frequencies = self.frequencies
+        return (2*np.pi**2)/3 * frequencies**3 * self.psd(frequencies)
     
     def plot(self, axis, label=None):
         if axis:
@@ -99,7 +102,7 @@ class Pulsar(Source):
         ----------
         
         """
-        if not frequencies: frequencies = self.frequencies
+        if frequencies is None: frequencies = self.frequencies
         response = np.ones(len(frequencies)) * np.nan
         def find_nearest(array,value):
             idx = (np.abs(array-value)).argmin()
@@ -128,11 +131,11 @@ class Type1ASupernova(Source):
     r = 10 * 1000 * u.parsec
     
     def __init__(self, frequencies = None, r = None):
-        if frequencies: self.frequencies = frequencies
-        if r: self.r = r
+        if frequencies is not None: self.frequencies = frequencies
+        if r is not None: self.r = r
 
     def characteristic_strain(self, frequencies = None):
-        if not frequencies: frequencies = self.frequencies
+        if frequencies is None: frequencies = self.frequencies
         response = np.ones(len(frequencies)) * ((9e-21) * (1*u.parsec) / self.r)
         response[frequencies < 0.25 * u.hertz ] = np.nan
         response[frequencies > 1.5 * u.hertz ] = np.nan
@@ -148,11 +151,11 @@ class CoreCollapseSupernova(Source):
     frequencies = np.logspace(2,3,1000) * u.hertz
     
     def __init__(self, frequencies = None, r = None):
-        if frequencies: self.frequencies = frequencies
-        if r: self.r = r
+        if frequencies is not None: self.frequencies = frequencies
+        if r is not None: self.r = r
 
     def characteristic_strain(self, frequencies = None):
-        if not frequencies: frequencies = self.frequencies
+        if frequencies is None: frequencies = self.frequencies
         return np.ones(len(frequencies)) * ((8.9e-21) * (1 * u.parsec) / self.r)
 
 class Numerical(Source):
@@ -172,10 +175,10 @@ class CBC(Source):
     r = 300 * u.parsec
     
     def __init__(self, frequencies=None, m1=None, m2=None, r=None):
-        if frequencies: self.frequencies = frequencies
-        if r: self.r = r
-        if m1: self.m1 = m1
-        if m2: self.m2 = m2
+        if frequencies is not None: self.frequencies = frequencies
+        if r is not None: self.r = r
+        if m1 is not None: self.m1 = m1
+        if m2 is not None: self.m2 = m2
         self.M = self.chirp_mass()
         
     def fdot(self, frequencies=None, M=None):
@@ -195,8 +198,8 @@ class CBC(Source):
         fdot : ndarray
             The df/dt of each frequency.
         """
-        if not frequencies: frequencies = 0.5*self.frequencies
-        if not M: M = self.chirp_mass()
+        if frequencies is None: frequencies = 0.5*self.frequencies
+        if M is None: M = self.chirp_mass()
         return (((96*np.pi**(8./3)) / (5 * c.c**5)) * (c.G*M)**(5./3) * frequencies**(11./3))#.to(u.hertz**2)
 
     def ncycles(self, frequencies=None, M=None):
@@ -216,13 +219,13 @@ class CBC(Source):
         ncycles : ndarray
             The number of cycles in each frequency bin.
         """
-        if not frequencies: frequencies = 0.5*self.frequencies
-        if not M: M = self.chirp_mass()
+        if frequencies is None: frequencies = 0.5*self.frequencies
+        if M is None: M = self.chirp_mass()
         return np.sqrt(frequencies**2/ self.fdot(frequencies, M))#.to(1)
     
     def characteristic_strain(self, frequencies=None):
-        if not frequencies: frequencies = self.frequencies
-        return np.sqrt(2*self.ncycles())*np.sqrt(4 * frequencies**2 * np.abs(self.raw_strain())**2)
+        if frequencies is None: frequencies = self.frequencies
+        return np.sqrt(2*self.ncycles(frequencies))*np.sqrt(4 * frequencies**2 * np.abs(self.raw_strain(frequencies))**2)
     
     def chirp_mass(self):
         return ((self.m1*self.m2)**(3./5) / (self.m1 + self.m2)**(1./5)).to(u.kilogram)
@@ -231,7 +234,7 @@ class CBC(Source):
         return ((c.c**3) / (np.pi*c.G*(self.m1+self.m2)*6*6**0.5 )).to(u.hertz)
     
     def raw_strain(self, frequencies=None):
-        if not frequencies: frequencies = self.frequencies
+        if frequencies is None: frequencies = self.frequencies
         h = ((1./self.r) * ((5*np.pi)/(24*c.c**3))**(0.5) * (c.G * self.M)**(5./6) * (np.pi*frequencies)**(-7./6)).to(1/u.hertz)
         h[frequencies>2*self.fisco()] = np.nan
         return h
@@ -246,7 +249,7 @@ class IMR(Source):
     """
 
     def __init__(self, frequencies=None, m1=None, m2=None, r=None):
-        if frequencies: self.frequencies = frequencies
+        if frequencies is not None: self.frequencies = frequencies
         self.distance = r.to(u.meter)
         self.mass1 = m1.to(u.kilogram)
         self.mass2 = m2.to(u.kilogram)
@@ -326,7 +329,7 @@ class MinkeSignal(Source):
     #def ncycles(self, a):
     #    return None
     def __init__(self, source, name=None, frequencies=None, **params):
-        if frequencies: self.frequencies = frequencies
+        if frequencies is not None: self.frequencies = frequencies
         if name: self.name = name
         if "sample_rate" in params.keys():
             self.sample_rate = params['sample_rate']
@@ -346,7 +349,7 @@ class MinkeSignal(Source):
 
         if not fft_len:
             fft_len = self.sample_rate
-        if not frequencies: frequencies = self.frequencies
+        if frequencies is None: frequencies = self.frequencies
 
         delta_t = np.diff(self.strain_of_t[:,0])[0]
         strain_of_f = 1./np.sqrt(fft_len)*np.fft.fft(signal.windows.hanning(len(self.strain_of_t[:,1]))*self.strain_of_t[:,1], fft_len)

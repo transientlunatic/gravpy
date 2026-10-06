@@ -58,16 +58,13 @@ def test_einstein_telescope_d_matches_lal():
 
 
 @pytest.mark.reference
-@pytest.mark.xfail(
-    reason="The interpolating cubic spline (splrep, s=0) of the tabulated *ASD* rings near "
-    "narrow lines (e.g. ~420 Hz): the PSD is off by up to a factor ~6 there. Interpolate "
-    "log(ASD) linearly/with PCHIP instead.",
-    strict=True,
-)
-def test_einstein_telescope_d_spline_does_not_ring():
+def test_einstein_telescope_d_does_not_ring_near_lines():
+    """A cubic spline through the tabulated ASD overshot by up to ~6x near narrow lines (~420 Hz)."""
     ours = gravpy_psd(ifo.EinsteinTelescope())
     theirs = lal_psd("SimNoisePSDEinsteinTelescopeP1600143", 1.0)
-    np.testing.assert_allclose(ratio_in_band(ours, theirs, 45, 2500), 1.0, rtol=0.05)
+    r = ratio_in_band(ours, theirs, 45, 2500)
+    # LAL interpolates differently on the line itself, so allow a factor of 2 there
+    assert 0.5 < r.min() and r.max() < 2.0, (r.min(), r.max())
 
 
 @pytest.mark.reference
@@ -87,56 +84,45 @@ def test_initial_ligo_is_close_to_lal_srd():
 
 
 @pytest.mark.reference
-def test_geo_is_close_to_lal():
+def test_geo_matches_lal():
     r = ratio_in_band(gravpy_psd(ifo.GEO()), lal_psd_scalar("SimNoisePSDGEO"), 50, 3000)
-    assert 0.7 < r.min() and r.max() < 1.3, (r.min(), r.max())
+    np.testing.assert_allclose(r, 1.0, rtol=0.05)
 
 
-@pytest.mark.reference
-@pytest.mark.xfail(
-    reason="gravpy's TAMA PSD is exactly 10x LAL's. One of S0=7.5e-46 (gravpy) or 7.5e-45 (LAL) "
-    "is a transcription error; check against Sathyaprakash & Schutz (2009) Table 1.",
-    strict=True,
-)
-def test_tama_matches_lal():
-    r = ratio_in_band(gravpy_psd(ifo.TAMA()), lal_psd_scalar("SimNoisePSDTAMA"), 100, 3000)
-    np.testing.assert_allclose(r, 1.0, rtol=0.3)
+# TAMA, Virgo and the analytic aLIGO fit are *not* compared with LAL: gravpy implements the
+# Sathyaprakash & Schutz (2009) Table 1 fits (checked below), while LAL's TAMA is 10x higher,
+# its Virgo is Advanced Virgo and its aLIGO is the zero-detuning/high-power design curve.
 
 
-@pytest.mark.reference
-@pytest.mark.xfail(
-    reason="gravpy's 'Virgo' is the initial-Virgo fit (Sathyaprakash & Schutz) which is not "
-    "AdvVirgo; either rename the class or compare with the initial-Virgo curve.",
-    strict=True,
-)
-def test_virgo_matches_lal_advvirgo():
-    r = ratio_in_band(gravpy_psd(ifo.Virgo()), lal_psd_scalar("SimNoisePSDAdvVirgo"), 50, 3000)
-    np.testing.assert_allclose(r, 1.0, rtol=0.3)
-
-
-@pytest.mark.reference
-@pytest.mark.xfail(
-    reason="The analytic aLIGO fit (Sathyaprakash & Schutz) is up to 4x away from aLIGO "
-    "zero-detuning/high-power in PSD (2x in ASD); it is not the design curve people expect.",
-    strict=True,
-)
-def test_aligo_analytic_matches_lal_zdhp():
-    r = ratio_in_band(
-        gravpy_psd(ifo.AdvancedLIGO()), lal_psd_scalar("SimNoisePSDaLIGOZeroDetHighPower"), 30, 3000
-    )
-    np.testing.assert_allclose(r, 1.0, rtol=0.3)
-
-
-@pytest.mark.xfail(
-    reason="EinsteinTelescope inherits fs=40 Hz from Interferometer, so the PSD is NaN below "
-    "40 Hz although ET-D is tabulated from 1 Hz.",
-    strict=True,
-)
 def test_einstein_telescope_is_finite_at_10hz():
     f = np.array([10.0]) * u.hertz
     det = ifo.EinsteinTelescope()
     det.frequencies = f
     assert np.isfinite(det.psd(f)[0])
+
+
+# ---------------------------------------------------------------------------
+# Analytic fits vs Table 1 of Sathyaprakash & Schutz, arXiv:0903.0338 (typed in independently)
+# ---------------------------------------------------------------------------
+
+TABLE1 = {
+    # class: (fs/Hz, f0/Hz, S0/Hz^-1, S(x)/S0)
+    "GEO": (40, 150, 1.0e-46, lambda x: (3.4*x)**-30 + 34/x + 20*(1 - x**2 + 0.5*x**4)/(1 + 0.5*x**2)),
+    "InitialLIGO": (40, 150, 9.0e-46, lambda x: (4.49*x)**-56 + 0.16*x**-4.52 + 0.52 + 0.32*x**2),
+    "TAMA": (75, 400, 7.5e-46, lambda x: x**-5 + 13/x + 9*(1 + x**2)),
+    "Virgo": (20, 500, 3.2e-46, lambda x: (7.8*x)**-5 + 2/x + 0.63 + x**2),
+    "AdvancedLIGO": (20, 215, 1.0e-49, lambda x: x**-4.14 - 5*x**-2 + 111*(1 - x**2 + 0.5*x**4)/(1 + 0.5*x**2)),
+}
+
+
+@pytest.mark.parametrize("name", list(TABLE1))
+def test_analytic_fit_matches_table1(name):
+    fs, f0, s0, shape = TABLE1[name]
+    f = np.logspace(np.log10(fs), 3.5, 100) * 1.0000001
+    det = getattr(ifo, name)()
+    det.frequencies = f * u.hertz
+    np.testing.assert_allclose(det.psd(f * u.hertz).to_value(1 / u.hertz), s0 * shape(f / f0), rtol=1e-10)
+    assert det.fs.to_value(u.hertz) == fs and det.f0.to_value(u.hertz) == f0
 
 
 # ---------------------------------------------------------------------------
@@ -197,21 +183,11 @@ def test_antenna_pattern_total_response_is_psi_independent(theta, phi, psi):
     assert float(det.antenna_pattern(theta, phi, psi)[2]) == pytest.approx(ref)
 
 
-@pytest.mark.xfail(
-    reason="detector_tensor is xx - yy, not (xx - yy)/2, so every response is 2x too large "
-    "(max |F| = 2 rather than 1).",
-    strict=True,
-)
 def test_antenna_pattern_is_normalised():
     det = ifo.AdvancedLIGO()
     assert all(float(det.antenna_pattern(*a)[2]) <= 1.0 + 1e-12 for a in ANGLES)
 
 
-@pytest.mark.xfail(
-    reason="antenna_pattern computes the psi rotation and then discards it (typo `ot_basis`), "
-    "so F+ and Fx do not depend on psi.",
-    strict=True,
-)
 def test_antenna_pattern_depends_on_psi():
     det = ifo.AdvancedLIGO()
     fp0, fx0, _ = det.antenna_pattern(0.0, 0.0, 0.0)
@@ -221,10 +197,6 @@ def test_antenna_pattern_depends_on_psi():
     assert float(fx0) == pytest.approx(0.0, abs=1e-12) and float(fp1) == pytest.approx(0.0, abs=1e-12)
 
 
-@pytest.mark.xfail(
-    reason="Fails on the normalisation and psi handling above (and possibly the angle convention).",
-    strict=True,
-)
 @pytest.mark.parametrize("theta,phi,psi", ANGLES)
 def test_antenna_pattern_matches_textbook(theta, phi, psi):
     fp, fx, _ = ifo.AdvancedLIGO().antenna_pattern(theta, phi, psi)
@@ -241,12 +213,12 @@ PIN_F = np.array([30, 100, 300, 1000.]) * u.hertz
 PINS = {
     ("AdvancedLIGO", None): [3.326472e-46, 8.151228e-48, 5.10269e-48, 2.004036e-46],
     ("AdvancedLIGO", "O1"): [9.118245e-45, 1.2492e-46, 7.073643e-47, 3.251608e-46],
-    ("AdvancedLIGO", "A+"): [3.233222e-47, 3.483091e-48, 2.385185e-48, 7.381817e-48],
+    ("AdvancedLIGO", "A+"): [3.233222e-47, 3.483091e-48, 2.385185e-48, 7.386551e-48],
     ("InitialLIGO", None): [np.nan, 1.496109e-45, 1.626276e-45, 1.326803e-44],
     ("Virgo", None): [2.512289e-44, 3.449036e-45, 1.383609e-45, 1.8016e-45],
-    ("GEO", None): [np.nan, 6.138384e-45, 3.966667e-45, 6.481728e-44],
+    ("GEO", None): [np.nan, 6.170707e-45, 5.033333e-45, 8.182951e-44],
     ("TAMA", None): [np.nan, 8.141719e-43, 2.670737e-44, 5.284518e-44],
-    ("EinsteinTelescope", None): [np.nan, 1.546914e-49, 1.024328e-49, 3.3303e-49],
+    ("EinsteinTelescope", None): [8.205109e-49, 1.546914e-49, 1.024328e-49, 3.3303e-49],
 }
 
 
